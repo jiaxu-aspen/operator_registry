@@ -1,0 +1,40 @@
+OPERATOR REGISTRY v1.1.0
+Released: November 3, 2026
+
+Cloud synchronization
+- Upload current registry publishes saved operator records to Cloudflare.
+- Download latest retrieves the cloud list with a change summary and a local
+  backup before replacement. Existing local change history is retained.
+- Stale uploads are rejected to prevent overwriting newer changes.
+- Published cards are disabled rather than removed, preserving their history.
+- Separate administrator and read-only station credentials protect access.
+- Local client credentials are encrypted for the current Windows user.
+
+Workbench integration
+- Compatible NexNav Workbench ATP and SW Load source apps check online at
+  sign-in and before starting. SW Load also rechecks in its worker.
+- Configured stations reject disabled/unknown cards and block new runs if
+  online validation fails. Ongoing runs retain their recorded identity.
+- Reports record the cloud registry revision and lookup timestamp.
+- Workbench integration is maintained in the separate NexNav_Workbench repo.
+
+Application version and controls
+- The window title and page heading display v1.1.0.
+- Back up registry saves a local SQLite file; it does not upload to the cloud.
+- Save operator saves locally. Upload current registry publishes those edits.
+- Application versions and cloud registry data revisions are independent.
+
+Installation and update
+- Close the registry app, update its source files, then reopen
+  Open Operator Registry.cmd. Python 3 with Tkinter is required.
+- Preserve operators.sqlite3, local backups, and private .local.json files.
+- Operator databases, backups, and credentials are not included in Git.
+- A fresh checkout requires cloud provisioning; see CLOUD_SETUP.txt.
+- This is a source release. Previously packaged standalone EXEs are unchanged.
+
+Validation
+- Registry storage, cloud client, and Tk control tests use temporary databases.
+- API tests cover authentication, roles, concurrent updates, and revocation.
+- Live deployment checks verified upload/download equality, active/disabled
+  card handling, station permissions, and both Workbench validation paths.
+- No card readers or test instruments were operated during validation.

@@ -10,6 +10,7 @@ from tkinter import ttk, messagebox, filedialog
 from card_reader import Reader
 from registry_store import Registry
 from cloud_ui import CloudControls
+from app_version import APP_VERSION
 
 BASE = Path(__file__).resolve().parent
 
@@ -21,7 +22,7 @@ class App(CloudControls):
         self.busy = False
         self.editing = False
         self.original = None
-        self.root.title('ATP Operator Registry')
+        self.root.title(f'Operator Registry v{APP_VERSION}')
         self.root.configure(background='white')
         self.root.minsize(820, 610)
         self.reader = tk.StringVar()
@@ -38,7 +39,7 @@ class App(CloudControls):
         style.configure('TButton', padding=(12, 7))
         body = ttk.Frame(root, padding=24)
         body.pack(fill='both', expand=True)
-        ttk.Label(body, text='Operator Registry', style='Title.TLabel').pack(anchor='w')
+        ttk.Label(body, text=f'Operator Registry v{APP_VERSION}', style='Title.TLabel').pack(anchor='w')
         ttk.Label(body, text='Scan a card • Enter the operator • Save locally').pack(anchor='w', pady=(4,16))
         reader_row = ttk.Frame(body); reader_row.pack(fill='x')
         self.readers = ttk.Combobox(reader_row, textvariable=self.reader, state='readonly', width=50)

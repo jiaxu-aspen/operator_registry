@@ -1,4 +1,8 @@
 OPERATOR REGISTRY - ENROLLMENT AND CLOUD SYNC
+Application version: 1.1.0
+
+See RELEASE_NOTES.txt for this version's changes. The app version is separate
+from the cloud registry revision, which increases each time records are uploaded.
 
 1. Double-click Open Operator Registry.cmd.
 2. Hold one compatible card on the OMNIKEY reader and click Scan card.
