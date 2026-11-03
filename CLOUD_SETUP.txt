@@ -1,0 +1,135 @@
+OPERATOR REGISTRY - CLOUDFLARE FREE
+
+Architecture
+------------
+The Windows registry app edits local SQLite. Upload publishes a complete,
+numbered snapshot to a private D1 database through a Worker HTTPS API.
+Download retrieves the latest snapshot, shows counts of changes, and backs up
+local SQLite before replacing records. Existing local change history remains.
+Each cloud publication retains the previous revision for audit/recovery.
+
+The integrated NexNav Workbench ATP and SW Load engines check the online
+registry when a card is scanned and before a new run. SW Load also rechecks in
+its worker before hardware operations. A failed online check blocks a new run.
+An existing run keeps its operator snapshot; it is not interrupted by a later
+cloud change. JSON and HTML reports include cloud version and check timestamp.
+A card left on the reader does not cause continuous cloud traffic.
+
+Deployment uses the Workers Free plan, one Worker, and one D1 database. No paid
+subscription, custom domain, scheduled keepalive, or paid add-on is required.
+Free-plan limits can make the API unavailable: monitor usage in Cloudflare.
+No uptime guarantee is implied. Current limits/pricing:
+https://developers.cloudflare.com/workers/platform/limits/
+https://developers.cloudflare.com/d1/platform/pricing/
+
+Deploy from a new checkout
+-------------------------
+Requires Python 3 with Tkinter on Windows and Node.js 22 or newer with npm.
+In the cloud folder:
+  npm ci
+  npx wrangler login
+  npx wrangler d1 create operator-registry
+Copy wrangler.jsonc to wrangler.local.jsonc and replace its database_id with
+the returned ID. Preserve the binding name DB. On a new Cloudflare account,
+register a free workers.dev subdomain in Workers & Pages if prompted.
+  npx wrangler d1 execute operator-registry --remote --file schema.sql --config wrangler.local.jsonc
+  npx wrangler deploy --config wrangler.local.jsonc
+The deployed API rejects all access until CLIENTS_JSON has been provisioned.
+
+From the registry app folder, provision this PC using the deployed HTTPS URL:
+  python provision_cloud.py --url https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev --workbench "..\NexNav Workstation"
+This uploads the credential hashes as a Worker secret through stdin, then saves
+Windows-user-encrypted admin and read-only client configuration files locally.
+Run this command again to reapply the same credentials, not rotate them.
+Do not use this initial provisioning script to add a second PC: it replaces the
+complete server credential directory. Follow the station procedure below.
+
+Open the registry app and use Upload current registry to seed the empty cloud.
+Restart Workbench to use the configured cloud registry. No code rebuild is
+needed for the source launchers. Previously packaged standalone executables
+are not changed by this integration; deploy a newly built package separately.
+
+Everyday operation
+------------------
+1. Download latest before editing. Preserve unpublished local work in a backup.
+2. Scan/edit and Save operator. This saves locally; it does not publish.
+3. Upload current registry. The displayed version confirms publication.
+4. Other stations see the update on their next online check.
+
+Uploads based on an old version are rejected rather than overwriting newer
+work. The app does not automatically merge edits from different enrollment PCs.
+Download latest, then reapply intended edits from the saved backup. Published
+cards cannot be removed by upload; disable retired/lost cards instead.
+If an upload times out, it may already have succeeded. Download and review the
+latest revision before retrying. Neither the app nor API automatically retries
+a write. Imports validate all records and commit records plus version together.
+
+Credentials and additional stations
+-----------------------------------
+Cloudflare account credentials stay with the deployment administrator. The
+Worker's CLIENTS_JSON secret maps each client ID to a SHA-256 hash of a random
+256-bit secret and role admin or reader. Desktop apps receive only their own
+client token, formatted client-id.secret. Readers can only check individual
+cards, not enumerate the registry, download it, or publish changes.
+
+For another station, generate a new random secret and unique client ID, add its
+hash and reader role to the existing CLIENTS_JSON directory without dropping
+other entries, and upload the complete directory using Wrangler secret bulk.
+Deliver the new client token privately to that station. Run
+NexNav Workstation/configure_registry_cloud.py and enter the Worker address and
+station token. Both engines share this station configuration. Never provision
+an administrator token to a test station. Remove a client entry to revoke it;
+rotate a compromised token by replacing its hash and updating that station.
+
+registry-cloud.local.json and provisioning.local.json contain DPAPI ciphertext
+bound to the current Windows user. They cannot simply be copied to a different
+user or PC. Reprovision there. Keep private backups of provisioning state under
+the same protection as operator data. All .local.json, SQLite, backups, local
+Wrangler settings, node_modules and .dev.vars files are ignored by Git.
+
+Configuration mode and outages
+------------------------------
+The registry app configuration is beside operator_registry.py. Workbench uses
+Operator Registry/registry-cloud.local.json beneath the Workbench folder.
+If that file exists, the engines require a successful online check; malformed
+configuration, disabled/unknown cards, rejected credentials and network errors
+never fall back to local SQLite. The network timeout is five seconds per socket
+operation; Start may briefly wait for the check. Settings should not be changed
+mid-run. An unprovisioned checkout retains its original local-registry behavior.
+Removing the configuration intentionally returns a station to local mode; do
+not do this as an automatic response to an outage.
+
+HTTPS certificate validation remains enabled. Redirects are rejected to avoid
+forwarding credentials elsewhere. Do not bypass TLS errors. A newly registered
+workers.dev address may need initial provisioning time; also check the station
+network's access policy. Administrative API credentials are not a card UID:
+key fobs remain an identification aid, not strong authentication.
+
+Validation and maintenance
+--------------------------
+  python -m unittest -v test_registry test_cloud
+  cd cloud
+  node --test worker.test.mjs
+Run test_operator_signin.py and test_cloud_signin.py separately in each of the
+Workbench atp and sw_load folders. Tests use temporary databases and mocks;
+they never operate card readers or instruments. For a live smoke check, use a
+read-only client to check a known active UID, confirm an unknown UID is denied,
+and verify an admin-only endpoint rejects the read-only client.
+
+The cloud_client.py module is vendored verbatim in the registry repo and both
+Workbench engines so either repo can be deployed independently. Keep these
+copies identical when updating the API client. The server's publication limit
+is 1000 records and 512000 request bytes. The initial implementation retains
+all cloud revisions; monitor D1 storage and export backups before any planned
+retention cleanup. Local pre-download backups are not uploaded automatically.
+
+CURRENT INSTALLATION (2026-11-03)
+--------------------------------
+Endpoint: https://operator-registry.jiaxu-aspen-registry.workers.dev
+Initial publication: version 1, six operator records (four active).
+The initial source database backup is saved beside operators.sqlite3 and is
+excluded from Git. This Windows user has registry administrator access and a
+separate read-only Workbench credential. Restart the source apps to load changes.
+Live checks verified download equality, active-card lookup, disabled-card
+rejection, read-only permission enforcement, and both engines' Start checks
+(including the SW Load worker). No instruments or card readers were operated.

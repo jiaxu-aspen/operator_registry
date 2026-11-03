@@ -9,10 +9,11 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from card_reader import Reader
 from registry_store import Registry
+from cloud_ui import CloudControls
 
 BASE = Path(__file__).resolve().parent
 
-class App:
+class App(CloudControls):
     def __init__(self, root):
         self.root = root
         self.store = Registry(BASE / 'operators.sqlite3')
@@ -55,8 +56,10 @@ class App:
         self.name_entry=ttk.Entry(form,textvariable=self.name)
         self.name_entry.grid(row=1,column=1,columnspan=2,sticky='ew',pady=5)
         ttk.Label(form,text='Tester initials').grid(row=2,column=0,sticky='w',pady=5)
-        ttk.Entry(form,textvariable=self.initials,width=16).grid(row=2,column=1,sticky='w',pady=5)
-        ttk.Checkbutton(form,text='Card active',variable=self.active).grid(row=2,column=2,sticky='w')
+        self.initials_entry=ttk.Entry(form,textvariable=self.initials,width=16)
+        self.initials_entry.grid(row=2,column=1,sticky='w',pady=5)
+        self.active_check=ttk.Checkbutton(form,text='Card active',variable=self.active)
+        self.active_check.grid(row=2,column=2,sticky='w')
         buttons=ttk.Frame(form);buttons.grid(row=3,column=0,columnspan=3,sticky='e',pady=(12,0))
         self.clear_button=ttk.Button(buttons,text='New card',command=self.new_card)
         self.clear_button.pack(side='left',padx=8)
@@ -74,9 +77,10 @@ class App:
         bottom=ttk.Frame(body);bottom.pack(fill='x',pady=(12,0))
         ttk.Button(bottom,text='Back up registry',command=self.backup).pack(side='right')
         ttk.Label(bottom,text='Select a row to edit or disable a card.').pack(side='left')
+        self.init_cloud(body, BASE)
         self.populate()
         root.update_idletasks()
-        width,height=900,720
+        width,height=960,820
         root.geometry(f'{width}x{height}+{max(0,(root.winfo_screenwidth()-width)//2)}+{max(0,(root.winfo_screenheight()-height)//2)}')
         root.protocol('WM_DELETE_WINDOW',self.close)
         root.after(100,self.poll)
@@ -96,6 +100,11 @@ class App:
         self.busy=value
         for button in (self.scan_button,self.refresh_button,self.save_button,self.clear_button):
             button.configure(state='disabled' if value else 'normal')
+        for button in getattr(self,'cloud_buttons',[]):
+            button.configure(state='disabled' if value else 'normal')
+        # A pending download must not overwrite edits typed during the request.
+        for widget in (self.name_entry,self.initials_entry,self.active_check):
+            widget.configure(state='disabled' if value else 'normal')
 
     def work(self,kind):
         """Run PC/SC calls off the Tk thread; only the main thread updates widgets."""
@@ -128,7 +137,8 @@ class App:
         try:
             while True:
                 kind,value=self.events.get_nowait();self.set_busy(False)
-                if kind=='error':self.status.set(value)
+                if kind.startswith('cloud_'):self.cloud_result(kind,value)
+                elif kind=='error':self.status.set(value)
                 elif kind=='readers':
                     self.readers['values']=value
                     if self.reader.get() not in value:self.reader.set(value[0] if value else '')
@@ -174,6 +184,7 @@ class App:
             record=self.store.save(self.uid.get(),self.name.get(),self.initials.get(),self.active.get(),self.editing)
             self.load(record,True);self.populate()
             self.status.set(f"Saved {record['name']} ({record['initials']}) — {'active' if record['active'] else 'disabled'}.")
+            self.cloud_status.set('Local changes saved — upload to publish them to test stations.')
         except (ValueError,sqlite3.Error) as exc:
             messagebox.showerror('Not saved',str(exc),parent=self.root)
 
@@ -184,6 +195,8 @@ class App:
             except (OSError,ValueError,sqlite3.Error) as exc:messagebox.showerror('Backup failed',str(exc),parent=self.root)
 
     def close(self):
+        if self.busy:
+            messagebox.showinfo('Operation in progress','Wait for the current card or cloud operation to finish.',parent=self.root);return
         if self.discard():self.store.close();self.root.destroy()
 
 def main():

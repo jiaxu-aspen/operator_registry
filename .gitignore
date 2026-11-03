@@ -5,3 +5,11 @@
 *.db-*
 __pycache__/
 *.py[cod]
+*.local.json
+*.local.tmp
+cloud/node_modules/
+cloud/.wrangler/
+cloud/.dev.vars*
+cloud/wrangler.local.jsonc
+cloud/secrets*.json
+.test-temp/
