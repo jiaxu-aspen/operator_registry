@@ -1,0 +1,7 @@
+# Local operator records and backups must not be published.
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+__pycache__/
+*.py[cod]
